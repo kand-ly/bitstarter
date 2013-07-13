@@ -3,6 +3,7 @@ var express = require('express');
 var app = express.createServer(express.logger());
 
 app.get('/', function(request, response) {
+  var fs = require('fs');
   var inbuf = fs.readFileSync("index.html");
   response.send(inbuf.toString());
 });
