@@ -21,11 +21,14 @@
          - https://developer.mozilla.org/en-US/docs/JSON#JSON_in_Firefox_2
    */
 
+var util = require('util');
 var fs = require('fs');
+var rest = require('restler');
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var tmpfile = "url.tmp";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -61,14 +64,42 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+function checkfile(inputfile, checks) {
+        var checkJson = checkHtmlFile(inputfile, checks);
+        var outJson = JSON.stringify(checkJson, null, 4);
+        console.log(outJson);
+};
+
+var buildfn = function(outfile, checks) {
+    var responsefn = function(result, response) {
+        if (result instanceof Error) {
+            console.error('Error: ' + util.format(response.message));
+        } else {
+            console.error("Wrote %s", outfile);
+            fs.writeFileSync(outfile, result);
+            checkfile(outfile, checks);
+        }
+    };
+    return responsefn;
+};
+
+
+
 if(require.main == module) {
         program
             .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
             .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+            .option('-u, --url <url>', 'Path to Heroku file')
             .parse(process.argv);
-        var checkJson = checkHtmlFile(program.file, program.checks);
-        var outJson = JSON.stringify(checkJson, null, 4);
-        console.log(outJson);
+
+        if (program.url) {
+            var response2file = buildfn(tmpfile, program.checks);
+            rest.get(program.url).on('complete', response2file);
+        }
+        else {
+            checkfile(program.file, program.checks);
+        }
+
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
